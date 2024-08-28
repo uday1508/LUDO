@@ -5,13 +5,50 @@ import { BackgroundImage } from '../utils/GetIcon';
 import LottieView from 'lottie-react-native'
 import DiceRoll from '../assets/animation/diceroll.json'
 import Arrow from '../assets/images/arrow.png'
+import { useDispatch, useSelector } from 'react-redux';
+import { selectCurrentPlayerChance, selectDiceNo, selectDiceRolled } from '../redux/reducers/gameSelectors';
+import { enablPileSelection, updateDiceNo, updatePlayerChance } from '../redux/reducers/gameSlice';
 const Dice = React.memo(({color , rotate , player , data}) => {
-    const diceNo = 6;
+
+    const dispatch = useDispatch();
+    const currentplayerchance = useSelector(selectCurrentPlayerChance);
+    const isDiceRolled = useSelector(selectDiceRolled);
+    const diceNo = useSelector(selectDiceNo);
+    const playerPiece = useSelector(state => state.game[`player${currentplayerchance}`]);
+
     const pileIcon = BackgroundImage.GetImage(color);
     const diceIcon = BackgroundImage.GetImage(diceNo);
 
     const arrow = useRef(new Animated.Value(0)).current;
     const [diceroll,setDiceroll] = useState(false);
+
+    const delay = ms => new Promise(res => setTimeout(res , ms));
+
+    const handleDicePress = async () =>{
+         const newDiceNo = Math.floor(Math.random()*6 ) + 1;
+          setDiceroll(true);
+          await delay(800);
+          dispatch(updateDiceNo({diceNo:newDiceNo}));
+          setDiceroll(false);
+
+          const isAnyPieceLive = data?.findIndex(i=>i.pos!=0 && i.pos!=57);
+          const isAnyPieceLocked  = data?.findIndex(i=>i.pos ==0)
+
+          if(isAnyPieceLive == -1){
+            if(newDiceNo == 6){
+                dispatch(enablPileSelection({playerNo:player}));
+            }else{
+                let TURN = player + 1;
+                if(TURN > 4){
+                    TURN = 1;
+                }
+                await delay(600);
+                dispatch(updatePlayerChance({turn:TURN}))
+            }
+          }else{
+
+          }
+    }
 
     useEffect(()=>{
         const animateArrow = () =>{
@@ -68,10 +105,15 @@ const Dice = React.memo(({color , rotate , player , data}) => {
             >
                 <View style={styles.diceContainer}>
 
-
-                     <TouchableOpacity>
+                { currentplayerchance === player && !diceroll ?(
+                     <TouchableOpacity
+                      disabled = {isDiceRolled}
+                      activeOpacity={0.4}
+                      onPress={handleDicePress}
+                     >
                          <Image source={diceIcon} style={styles.dice}/>
-                     </TouchableOpacity>
+                     </TouchableOpacity>):(null)
+                } 
 
                 </View>
 
@@ -79,11 +121,11 @@ const Dice = React.memo(({color , rotate , player , data}) => {
                
         </View>
 
-      { diceroll &&  <Animated.View style = {{transform:[{translateX:arrow}]}}>
+      {currentplayerchance === player && !diceroll &&  <Animated.View style = {{transform:[{translateX:arrow}]}}>
             <Image source={Arrow} style={{height:30,width:50}}/>
         </Animated.View> }
 
-      { diceroll &&  <LottieView
+      {currentplayerchance === player && diceroll &&  <LottieView
          source={DiceRoll}
          style={styles.rollingDice}
          loop={false}
